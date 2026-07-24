@@ -1,0 +1,11 @@
+Man-in-the-Middle (MitM) Data Aggregator - mitm_collector_employee_ora
+Copyright 2026 ZHENG Robert
+
+This product includes software developed by ZHENG Robert (robert@hase-zheng.net).
+
+Third-party dependencies:
+- github.com/godror/godror (Apache License 2.0)
+- github.com/jackc/pgx/v5 (MIT License)
+- github.com/google/uuid (BSD 3-Clause)
+
+For more information, see the LICENSE file in the root directory.
