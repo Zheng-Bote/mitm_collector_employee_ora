@@ -5,6 +5,16 @@ All notable changes to the `mitm_collector_employee_ora` project will be documen
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.15.0] - 2026-08-31
+
+### Added
+
+- **IPC Socket as Credential Broker**: The collector now fetches database credentials and the master key at runtime from the Scheduler via a Unix Domain Socket request (`get_credentials` with `RUN_ID` and `SCHEDULER_SOCKET_PATH`), instead of holding them locally. Removed the previously committed binary from the repository.
+
+### Changed
+
+- **Atomic Batch Transactions**: Refactored row ingestion and cursor persistence into a shared `executeBatch` transaction (`pgx.Tx`). Batch inserts and the cursor upsert now commit or roll back atomically, with correct `recordsIngested`/`recordsFailed` accounting.
+
 ## [v0.14.0] - 2026-08-29
 
 ### Changed/Added
