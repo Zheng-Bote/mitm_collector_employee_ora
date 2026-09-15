@@ -32,11 +32,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"regexp"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -46,9 +46,9 @@ import (
 
 var (
 	identifierRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-	appName        = "Oracle Collector"
-	appDescription = "Extracts data from Oracle databases"
-	version        = "0.15.3"
+	appName         = "Oracle Collector"
+	appDescription  = "Extracts data from Oracle databases"
+	version         = "0.15.3"
 )
 
 // TargetDBConfig defines parameters for the MitM target database passed via JSON CLI argument
@@ -76,11 +76,12 @@ type SourceDBConfig struct {
 
 // CollectorArgs defines optional runtime arguments passed by the scheduler as JSON
 type CollectorArgs struct {
-	SourceName        string `json:"source_name"`
-	Table             string `json:"table"`
-	CursorColumn      string `json:"cursor_column"`
-	Topic             string `json:"topic"`
-	BusinessKeyColumn string `json:"business_key_column"`
+	SourceName        string   `json:"source_name"`
+	Table             string   `json:"table"`
+	CursorColumn      string   `json:"cursor_column"`
+	Topic             string   `json:"topic"`
+	BusinessKeyColumn string   `json:"business_key_column"`
+	CompanyCodes      []string `json:"companycode,omitempty"`
 }
 
 // StatusEvent is sent to the scheduler Unix socket
@@ -277,10 +278,14 @@ func main() {
 	cursorColumn := "" // No default, to allow tables without 'id'
 	topicName := "employee.data"
 	businessKeyCol := "id" // Default fallback
+	var companyCodes []string
 
 	if len(os.Args) >= 2 {
 		var colArgs CollectorArgs
 		if err := json.Unmarshal([]byte(os.Args[1]), &colArgs); err == nil {
+			if len(colArgs.CompanyCodes) > 0 {
+				companyCodes = colArgs.CompanyCodes
+			}
 			if colArgs.SourceName != "" {
 				targetCfg.SourceName = colArgs.SourceName
 			}
@@ -327,16 +332,16 @@ func main() {
 		mitmDSN = targetCfg.DSN
 	} else {
 		sslMode := "disable"
-	envSSLMode := os.Getenv("MITM_DB_SSLMODE")
-	if envSSLMode != "" {
-		if envSSLMode == "true" {
-			sslMode = "require"
-		} else if envSSLMode == "false" {
-			sslMode = "disable"
-		} else {
-			sslMode = envSSLMode
+		envSSLMode := os.Getenv("MITM_DB_SSLMODE")
+		if envSSLMode != "" {
+			if envSSLMode == "true" {
+				sslMode = "require"
+			} else if envSSLMode == "false" {
+				sslMode = "disable"
+			} else {
+				sslMode = envSSLMode
+			}
 		}
-	}
 		mitmDSN = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 			targetCfg.User, targetCfg.Password, targetCfg.Host, targetCfg.Port, targetCfg.Database, sslMode)
 	}
@@ -505,16 +510,33 @@ func main() {
 	// 13. Query Oracle table
 	var query string
 	var queryArgs []interface{}
-	if lastCursor != "" && cursorColumn != "" {
-		query = fmt.Sprintf("SELECT * FROM %s WHERE %s > :1 ORDER BY %s ASC",
-			tableName, cursorColumn, cursorColumn)
-		queryArgs = append(queryArgs, lastCursor)
-	} else if cursorColumn != "" {
-		query = fmt.Sprintf("SELECT * FROM %s ORDER BY %s ASC",
-			tableName, cursorColumn)
-	} else {
-		query = fmt.Sprintf("SELECT * FROM %s", tableName)
+
+	baseSQL := fmt.Sprintf("SELECT * FROM %s", tableName)
+	var conditions []string
+
+	if len(companyCodes) > 0 {
+		var placeholders []string
+		for _, cc := range companyCodes {
+			queryArgs = append(queryArgs, cc)
+			placeholders = append(placeholders, fmt.Sprintf(":%d", len(queryArgs)))
+		}
+		conditions = append(conditions, fmt.Sprintf("companycode IN (%s)", strings.Join(placeholders, ", ")))
 	}
+
+	if lastCursor != "" && cursorColumn != "" {
+		queryArgs = append(queryArgs, lastCursor)
+		conditions = append(conditions, fmt.Sprintf("%s > :%d", cursorColumn, len(queryArgs)))
+	}
+
+	if len(conditions) > 0 {
+		baseSQL += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	if cursorColumn != "" {
+		baseSQL += fmt.Sprintf(" ORDER BY %s ASC", cursorColumn)
+	}
+
+	query = baseSQL
 
 	rows, err := oracleDB.Query(query, queryArgs...)
 	if err != nil {
@@ -552,7 +574,7 @@ func main() {
 		if batchSize == 0 {
 			return
 		}
-		
+
 		if cursorToSave != "" {
 			batch.Queue(`
 				INSERT INTO ingestion_cursors (source_name, last_cursor, updated_at)
@@ -561,7 +583,7 @@ func main() {
 				DO UPDATE SET last_cursor = EXCLUDED.last_cursor, updated_at = NOW()
 			`, targetCfg.SourceName, cursorToSave)
 		}
-		
+
 		tx, err := mitmPool.Begin(ctx)
 		if err != nil {
 			log.Printf("Failed to begin transaction for batch: %v", err)
@@ -570,9 +592,9 @@ func main() {
 			batchSize = 0
 			return
 		}
-		
+
 		br := tx.SendBatch(ctx, batch)
-		
+
 		var batchError error
 		for i := 0; i < batchSize; i++ {
 			_, err := br.Exec()
@@ -581,16 +603,16 @@ func main() {
 				break
 			}
 		}
-		
+
 		if cursorToSave != "" && batchError == nil {
 			_, err := br.Exec()
 			if err != nil {
 				batchError = err
 			}
 		}
-		
+
 		br.Close()
-		
+
 		if batchError != nil {
 			tx.Rollback(ctx)
 			log.Printf("Batch exec error: %v", batchError)
@@ -603,7 +625,7 @@ func main() {
 				recordsIngested += batchSize
 			}
 		}
-		
+
 		batch = &pgx.Batch{}
 		batchSize = 0
 	}
@@ -706,12 +728,12 @@ func fetchCredentialsFromScheduler() (string, string, error) {
 	if runIDStr == "" || socketPath == "" {
 		return "", "", fmt.Errorf("not running under scheduler")
 	}
-	
+
 	runID, err := strconv.Atoi(runIDStr)
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		return "", "", err
