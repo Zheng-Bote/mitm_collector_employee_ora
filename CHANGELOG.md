@@ -5,6 +5,12 @@ All notable changes to the `mitm_collector_employee_ora` project will be documen
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.16.0] - 2026-09-15
+
+### Added
+
+- **Company Code Filter:** The collector now supports an optional `companycode` JSON parameter (array of strings) to dynamically append an `IN` clause to the Oracle query, allowing partitioned ingestion jobs.
+
 ## [v0.15.3] - 2026-09-01
 
 ### Fixed

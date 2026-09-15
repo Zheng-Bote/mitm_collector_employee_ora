@@ -34,6 +34,7 @@ The following parameters are supported:
 | `cursor_column` | string | No | The numeric/incremental column used to track fetch progress (e.g., `id`). If set to `"none"`, the collector will fetch all rows without a cursor. |
 | `topic` | string | No | The MitM system topic for downstream matching. Defaults to `ora.<table_name>.data`. |
 | `business_key_column` | string | No | The unique column used to hash and generate the `correlation_id` (e.g., `PERNR`). Defaults to `id`. |
+| `companycode` | array of strings | No | Optional list of company codes (e.g. `["ZA", "C1"]`) to dynamically filter the extraction query (`WHERE companycode IN (...)`). |
 
 ### Example Scheduler JSON
 ```json
