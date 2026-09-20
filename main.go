@@ -76,12 +76,12 @@ type SourceDBConfig struct {
 
 // CollectorArgs defines optional runtime arguments passed by the scheduler as JSON
 type CollectorArgs struct {
-	SourceName        string   `json:"source_name"`
-	Table             string   `json:"table"`
-	CursorColumn      string   `json:"cursor_column"`
-	Topic             string   `json:"topic"`
-	BusinessKeyColumn string   `json:"business_key_column"`
-	CompanyCodes      []string `json:"companycode,omitempty"`
+	SourceName        string              `json:"source_name"`
+	Table             string              `json:"table"`
+	CursorColumn      string              `json:"cursor_column"`
+	Topic             string              `json:"topic"`
+	BusinessKeyColumn string              `json:"business_key_column"`
+	DBWhereIn         map[string][]string `json:"db_where_in,omitempty"`
 }
 
 // StatusEvent is sent to the scheduler Unix socket
@@ -278,13 +278,13 @@ func main() {
 	cursorColumn := "" // No default, to allow tables without 'id'
 	topicName := "employee.data"
 	businessKeyCol := "id" // Default fallback
-	var companyCodes []string
+	var dbWhereIn map[string][]string
 
 	if len(os.Args) >= 2 {
 		var colArgs CollectorArgs
 		if err := json.Unmarshal([]byte(os.Args[1]), &colArgs); err == nil {
-			if len(colArgs.CompanyCodes) > 0 {
-				companyCodes = colArgs.CompanyCodes
+			if len(colArgs.DBWhereIn) > 0 {
+				dbWhereIn = colArgs.DBWhereIn
 			}
 			if colArgs.SourceName != "" {
 				targetCfg.SourceName = colArgs.SourceName
@@ -514,13 +514,24 @@ func main() {
 	baseSQL := fmt.Sprintf("SELECT * FROM %s", tableName)
 	var conditions []string
 
-	if len(companyCodes) > 0 {
-		var placeholders []string
-		for _, cc := range companyCodes {
-			queryArgs = append(queryArgs, cc)
-			placeholders = append(placeholders, fmt.Sprintf(":%d", len(queryArgs)))
+	if len(dbWhereIn) > 0 {
+		for col, vals := range dbWhereIn {
+			if !identifierRegex.MatchString(col) {
+				if ipc != nil {
+					ipc.SendEvent("failed", fmt.Sprintf("Invalid column name in db_where_in: %s", col), 0)
+				}
+				log.Fatalf("Invalid column name in db_where_in: %s", col)
+			}
+			if len(vals) == 0 {
+				continue
+			}
+			var placeholders []string
+			for _, val := range vals {
+				queryArgs = append(queryArgs, val)
+				placeholders = append(placeholders, fmt.Sprintf(":%d", len(queryArgs)))
+			}
+			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", col, strings.Join(placeholders, ", ")))
 		}
-		conditions = append(conditions, fmt.Sprintf("companycode IN (%s)", strings.Join(placeholders, ", ")))
 	}
 
 	if lastCursor != "" && cursorColumn != "" {

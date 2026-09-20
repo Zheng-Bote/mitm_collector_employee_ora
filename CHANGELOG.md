@@ -5,11 +5,23 @@ All notable changes to the `mitm_collector_employee_ora` project will be documen
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.17.0] - 2026-09-20
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
+
 ## [v0.16.0] - 2026-09-15
 
 ### Added
 
 - **Company Code Filter:** The collector now supports an optional `companycode` JSON parameter (array of strings) to dynamically append an `IN` clause to the Oracle query, allowing partitioned ingestion jobs.
+
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
 
 ## [v0.15.3] - 2026-09-01
 
@@ -17,17 +29,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **IPC SSLMode DSN Fix**: Fixed an issue where the constructed database connection string (DSN) would incorrectly overwrite `MITM_DB_SSLMODE=require` with `disable`, which caused `FATAL: no encryption` errors in AWS RDS.
 
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
+
 ## [v0.15.2] - 2026-09-01
 
 ### Fixed
 
 - **IPC SSLMode Type Fix**: Changed `SSLMode` field in JSON parsing struct from `string` to `bool` to correctly unmarshal boolean values (`true`/`false`) sent by the scheduler.
 
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
+
 ## [v0.15.1] - 2026-09-01
 
 ### Fixed
 
 - **IPC SSLMode Fix**: Fixed an issue where `SSLMode` was not correctly parsed from the scheduler's JSON configuration and improved the `MITM_DB_SSLMODE` fallback logic to support proper PostgreSQL sslmode strings (e.g., `require`, `verify-full`).
+
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
 
 ## [v0.15.0] - 2026-08-31
 
@@ -39,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Atomic Batch Transactions**: Refactored row ingestion and cursor persistence into a shared `executeBatch` transaction (`pgx.Tx`). Batch inserts and the cursor upsert now commit or roll back atomically, with correct `recordsIngested`/`recordsFailed` accounting.
 
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
+
 ## [v0.14.0] - 2026-08-29
 
 ### Changed/Added
@@ -47,11 +83,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented graceful shutdown with context cancellation on `SIGINT`/`SIGTERM`.
 - Optimized performance with batched operations.
 
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
+
 ## [v0.13.0] - 2026-08-29
 
 ### Fixed
 
 - **Oracle Connection**: Fixed an issue where the connection string was incorrectly formulated when using a SID instead of a Service Name.
+
+## [Unreleased]
+
+### Added
+- Added support for flexible JSON argument `db_where_in` to allow dynamic `WHERE IN` SQL filtering, replacing statically hardcoded filters.
+
 
 ## [v0.12.0] - 2026-07-29
 
